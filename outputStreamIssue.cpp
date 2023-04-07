@@ -1,3 +1,46 @@
+void MainComponent::loadAudioButtonClicked()
+{
+    fileChooser = std::make_unique<juce::FileChooser> ("Selecione...", juce::File(), "*.wav");
+
+    fileChooser->launchAsync(juce::FileBrowserComponent::openMode |
+                             juce::FileBrowserComponent::canSelectFiles,
+                             [this] (const juce::FileChooser& fileChooser)mutable
+                             {
+
+                                 if (!fileChooser.getURLResult().isEmpty()) {
+
+                                     DBG('Got URL Result');
+                                     auto bufferToWriteTo = writeBuffer.load();
+                                     auto audioFileURL = fileChooser.getURLResult();
+                                     auto androidDocument = juce::AndroidDocument::fromDocument(
+                                             juce::URL(audioFileURL));
+                                     auto *reader = formatManager.createReaderFor(
+                                             androidDocument.createInputStream());
+                                     bufferToWriteTo->setSize(reader->numChannels,
+                                                              reader->lengthInSamples, false, true);
+                                     backingTrackCursor = std::numeric_limits<int>::max();
+                                     reader->read(bufferToWriteTo, 0, reader->lengthInSamples, 0,
+                                                  true, true);
+
+                                     DBG("BackingTrack length");
+                                     DBG(reader->lengthInSamples);
+                                     DBG("BackingTrack channels");
+                                     DBG(int(reader->numChannels));
+                                     DBG("BackingTrack sampleRate");
+                                     DBG(reader->sampleRate);
+
+                                     delete reader;
+
+                                     reader = nullptr;
+
+                                     writeBuffer.store(readBuffer.load());
+                                     readBuffer.store(bufferToWriteTo);
+                                 }
+                             });
+
+
+}
+
 void MainComponent::saveMusicButtonClicked()
 {
     auto backingTrackSavingBuffer = readBuffer.load();
